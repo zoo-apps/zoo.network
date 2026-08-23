@@ -23,45 +23,49 @@ export function BlockList() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Generate mock data - replace with actual blockchain data
-    const mockBlocks: Block[] = []
-    const baseNumber = 1234567
-    const now = Date.now()
-
-    for (let i = 0; i < 10; i++) {
-      mockBlocks.push({
-        number: baseNumber - i,
-        hash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
-        timestamp: now - (i * 2000), // 2 seconds per block
-        miner: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-        transactions: Math.floor(Math.random() * 200) + 50,
-        gasUsed: Math.floor(Math.random() * 15000000),
-        gasLimit: 30000000,
-        reward: 2 + Math.random() * 0.5,
+    // Live blocks from the Zoo primary network (chain 200200). No mock data.
+    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
+    const call = (method: string, params: unknown[]) =>
+      fetch(C, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       })
+        .then((r) => r.json())
+        .then((j) => j.result)
+    let alive = true
+    const load = async () => {
+      try {
+        const tip = parseInt(await call('eth_blockNumber', []), 16)
+        if (!Number.isFinite(tip)) return
+        const nums = Array.from({ length: Math.min(10, tip + 1) }, (_, i) => tip - i)
+        const raw = await Promise.all(nums.map((n) => call('eth_getBlockByNumber', ['0x' + n.toString(16), false])))
+        if (!alive) return
+        setBlocks(
+          raw.filter(Boolean).map((b) => ({
+            number: parseInt(b.number, 16),
+            hash: b.hash,
+            timestamp: parseInt(b.timestamp, 16) * 1000,
+            miner: b.miner,
+            transactions: Array.isArray(b.transactions) ? b.transactions.length : 0,
+            gasUsed: parseInt(b.gasUsed, 16),
+            gasLimit: parseInt(b.gasLimit, 16),
+            reward: 0,
+          })),
+        )
+        setLoading(false)
+      } catch {
+        if (alive) setLoading(false)
+      }
     }
-
-    setBlocks(mockBlocks)
-    setLoading(false)
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setBlocks(prev => {
-        const newBlock: Block = {
-          number: prev[0].number + 1,
-          hash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
-          timestamp: Date.now(),
-          miner: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-          transactions: Math.floor(Math.random() * 200) + 50,
-          gasUsed: Math.floor(Math.random() * 15000000),
-          gasLimit: 30000000,
-          reward: 2 + Math.random() * 0.5,
-        }
-        return [newBlock, ...prev.slice(0, 9)]
-      })
-    }, 2000)
-
-    return () => clearInterval(interval)
+    load()
+    // Poll for new tips. The chain can be quiet — the list simply won't change
+    // when no block is produced, which is the honest state.
+    const interval = setInterval(load, 12000)
+    return () => {
+      alive = false
+      clearInterval(interval)
+    }
   }, [])
 
   if (loading) {

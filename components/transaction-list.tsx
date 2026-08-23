@@ -25,49 +25,57 @@ export function TransactionList() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Generate mock data - replace with actual blockchain data
-    const mockTxs: Transaction[] = []
-    const now = Date.now()
-    const methods = ['Transfer', 'Swap', 'Approve', 'Mint', 'Stake', 'Claim']
-
-    for (let i = 0; i < 10; i++) {
-      mockTxs.push({
-        hash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
-        from: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-        to: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-        value: Math.random() * 100,
-        gas: Math.floor(Math.random() * 100000) + 21000,
-        gasPrice: Math.random() * 50 + 10,
-        timestamp: now - (i * 1000),
-        status: Math.random() > 0.1 ? 'success' : 'failed',
-        method: methods[Math.floor(Math.random() * methods.length)],
-        blockNumber: 1234567 - Math.floor(i / 3),
+    // Live transactions from the Zoo primary network (chain 200200), pulled from
+    // the most recent blocks. No mock data — a quiet chain simply shows few or none.
+    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
+    const call = (method: string, params: unknown[]) =>
+      fetch(C, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
       })
-    }
-
-    setTransactions(mockTxs)
-    setLoading(false)
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setTransactions(prev => {
-        const newTx: Transaction = {
-          hash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
-          from: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-          to: `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`,
-          value: Math.random() * 100,
-          gas: Math.floor(Math.random() * 100000) + 21000,
-          gasPrice: Math.random() * 50 + 10,
-          timestamp: Date.now(),
-          status: 'pending',
-          method: methods[Math.floor(Math.random() * methods.length)],
-          blockNumber: 1234567,
+        .then((r) => r.json())
+        .then((j) => j.result)
+    let alive = true
+    const load = async () => {
+      try {
+        const tip = parseInt(await call('eth_blockNumber', []), 16)
+        if (!Number.isFinite(tip)) return
+        const nums = Array.from({ length: Math.min(15, tip + 1) }, (_, i) => tip - i)
+        const blocks = await Promise.all(nums.map((n) => call('eth_getBlockByNumber', ['0x' + n.toString(16), true])))
+        if (!alive) return
+        const txs: Transaction[] = []
+        for (const b of blocks.filter(Boolean)) {
+          const ts = parseInt(b.timestamp, 16) * 1000
+          for (const t of b.transactions || []) {
+            txs.push({
+              hash: t.hash,
+              from: t.from,
+              to: t.to || '',
+              value: parseInt(t.value, 16) / 1e18,
+              gas: parseInt(t.gas, 16),
+              gasPrice: t.gasPrice ? parseInt(t.gasPrice, 16) / 1e9 : 0,
+              timestamp: ts,
+              status: 'success',
+              method: t.input && t.input !== '0x' ? 'Contract call' : 'Transfer',
+              blockNumber: parseInt(t.blockNumber, 16),
+            })
+            if (txs.length >= 10) break
+          }
+          if (txs.length >= 10) break
         }
-        return [newTx, ...prev.slice(0, 9)]
-      })
-    }, 3000)
-
-    return () => clearInterval(interval)
+        setTransactions(txs)
+        setLoading(false)
+      } catch {
+        if (alive) setLoading(false)
+      }
+    }
+    load()
+    const interval = setInterval(load, 12000)
+    return () => {
+      alive = false
+      clearInterval(interval)
+    }
   }, [])
 
   if (loading) {

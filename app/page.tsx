@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Activity, Blocks, DollarSign, Users, TrendingUp, Globe } from 'lucide-react'
-import { NetworkStats } from '@/components/network-stats'
+import { Activity, Blocks, Users, Globe } from 'lucide-react'
 import { BlockList } from '@/components/block-list'
 import { TransactionList } from '@/components/transaction-list'
 import { SearchBar } from '@/components/search-bar'
@@ -12,23 +11,42 @@ import { SearchBar } from '@/components/search-bar'
 export default function HomePage() {
   const [networkStats, setNetworkStats] = useState({
     blockHeight: 0,
-    transactions: 0,
-    accounts: 0,
+    gasGwei: 0,
+    chainId: 0,
     validators: 0,
-    marketCap: 0,
-    price: 0,
+    loading: true,
   })
 
   useEffect(() => {
-    // Simulated data - will be replaced with actual blockchain data
-    setNetworkStats({
-      blockHeight: 1234567,
-      transactions: 5678901,
-      accounts: 123456,
-      validators: 100,
-      marketCap: 1000000000,
-      price: 25.50,
-    })
+    // Live from the Zoo primary network (chain 200200) — no simulated values.
+    // Only figures a single node can answer are shown; totals that need an
+    // indexer live on the dedicated explorer, not faked here.
+    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
+    const P = 'https://api.zoo.ngo/v1/bc/P'
+    const call = (url: string, method: string, params: unknown = []) =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      })
+        .then((r) => r.json())
+        .then((j) => j.result)
+    Promise.all([
+      call(C, 'eth_blockNumber'),
+      call(C, 'eth_gasPrice'),
+      call(C, 'eth_chainId'),
+      call(P, 'platform.getCurrentValidators', {}),
+    ])
+      .then(([bn, gp, cid, v]) =>
+        setNetworkStats({
+          blockHeight: bn ? parseInt(bn, 16) : 0,
+          gasGwei: gp ? Math.round(parseInt(gp, 16) / 1e9) : 0,
+          chainId: cid ? parseInt(cid, 16) : 0,
+          validators: v && v.validators ? v.validators.length : 0,
+          loading: false,
+        }),
+      )
+      .catch(() => setNetworkStats((s) => ({ ...s, loading: false })))
   }, [])
 
   return (
@@ -51,44 +69,42 @@ export default function HomePage() {
             <Blocks className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{networkStats.blockHeight.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+1 block every ~2s</p>
+            <div className="text-2xl font-bold">{networkStats.loading ? '—' : networkStats.blockHeight.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">live C-Chain tip</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
+            <CardTitle className="text-sm font-medium">Chain ID</CardTitle>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{networkStats.loading ? '—' : networkStats.chainId.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Zoo primary network</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Gas Price</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{networkStats.transactions.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+12.5% from last week</p>
+            <div className="text-2xl font-bold">{networkStats.loading ? '—' : `${networkStats.gasGwei} Gwei`}</div>
+            <p className="text-xs text-muted-foreground">current base fee</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium">Validators</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{networkStats.accounts.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+5.2% from last week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ZOO Price</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${networkStats.price.toFixed(2)}</div>
-            <p className="text-xs text-green-600">+8.5% (24h)</p>
+            <div className="text-2xl font-bold">{networkStats.loading ? '—' : networkStats.validators.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">securing the primary network</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Network Overview */}
-      <NetworkStats />
 
       {/* Latest Blocks and Transactions */}
       <Tabs defaultValue="blocks" className="space-y-4">
