@@ -3,16 +3,15 @@
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
-import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
-import { config } from '@/lib/wagmi'
-import '@rainbow-me/rainbowkit/styles.css'
 
+// Read-only explorer: theme + data-fetching only. The wallet stack
+// (wagmi/RainbowKit) was removed — it pulled an unresolvable @x402 transitive
+// that broke every build since Feb 2026, and an explorer needs no wallet.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000, // 1 minute
-      refetchInterval: 60 * 1000, // 1 minute
+      staleTime: 60 * 1000,
+      refetchInterval: 60 * 1000,
     },
   },
 })
@@ -20,13 +19,7 @@ const queryClient = new QueryClient({
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <WagmiProvider config={config}>
-        <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider theme={darkTheme()}>
-            {children}
-          </RainbowKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ThemeProvider>
   )
 }

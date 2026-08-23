@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { cn } from '@/lib/utils'
 import {
   Home,
@@ -68,7 +67,6 @@ export function Navigation() {
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Toggle theme</span>
           </Button>
-          <ConnectButton />
         </div>
       </div>
     </header>
