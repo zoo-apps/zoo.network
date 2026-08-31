@@ -21,8 +21,8 @@ export default function HomePage() {
     // Live from the Zoo primary network (chain 200200) — no simulated values.
     // Only figures a single node can answer are shown; totals that need an
     // indexer live on the dedicated explorer, not faked here.
-    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
-    const P = 'https://api.zoo.ngo/v1/bc/P'
+    const C = 'https://api.zoo.ngo/v1/chain/C/rpc'
+    const P = 'https://api.zoo.ngo/v1/chain/P'
     const call = (url: string, method: string, params: unknown = []) =>
       fetch(url, {
         method: 'POST',

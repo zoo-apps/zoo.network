@@ -27,7 +27,7 @@ export function TransactionList() {
   useEffect(() => {
     // Live transactions from the Zoo primary network (chain 200200), pulled from
     // the most recent blocks. No mock data — a quiet chain simply shows few or none.
-    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
+    const C = 'https://api.zoo.ngo/v1/chain/C/rpc'
     const call = (method: string, params: unknown[]) =>
       fetch(C, {
         method: 'POST',

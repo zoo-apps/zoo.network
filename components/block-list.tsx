@@ -24,7 +24,7 @@ export function BlockList() {
 
   useEffect(() => {
     // Live blocks from the Zoo primary network (chain 200200). No mock data.
-    const C = 'https://api.zoo.ngo/v1/bc/C/rpc'
+    const C = 'https://api.zoo.ngo/v1/chain/C/rpc'
     const call = (method: string, params: unknown[]) =>
       fetch(C, {
         method: 'POST',
